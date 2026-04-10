@@ -15,14 +15,6 @@ use crate::{
     todo::{NewTask, Task, TodoList},
 };
 
-pub fn route() -> Router<ServerState> {
-    Router::new()
-        .route("/", post(add_task))
-        .route("/search", post(search_task))
-        .route("/{id}/complete", post(complete_task))
-        .route("/{id}/uncomplete", post(uncomplete_task))
-}
-
 pub fn create() -> Markup {
     html! {
         form id="create-task-form" class="flex content-stretch gap-2" {
@@ -91,18 +83,18 @@ pub fn list(state: &TodoList) -> Markup {
     }
 }
 
+pub fn route() -> Router<ServerState> {
+    Router::new()
+        .route("/", post(add_task))
+        .route("/search", post(search_task))
+        .route("/{id}/complete", post(complete_task))
+        .route("/{id}/uncomplete", post(uncomplete_task))
+}
+
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct AddTaskFormInput {
     description: String,
-}
-
-impl Into<NewTask> for AddTaskFormInput {
-    fn into(self) -> NewTask {
-        NewTask {
-            description: self.description,
-        }
-    }
 }
 
 #[axum::debug_handler]
@@ -111,7 +103,10 @@ pub async fn add_task(
     Form(input): Form<AddTaskFormInput>,
 ) -> impl IntoResponse {
     sleep(ENDPOINT_DELAY).await;
-    let task = db.insert_task(input.into()).await;
+    let task = NewTask {
+        description: input.description,
+    };
+    let task = db.insert_task(task).await;
 
     row(&task)
 }
@@ -121,7 +116,6 @@ pub async fn complete_task(
     State(db): State<DbConnection>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
-    sleep(ENDPOINT_DELAY).await;
     let task = db.complete_task(id).await;
 
     row(&task)
