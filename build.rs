@@ -1,10 +1,6 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 
 fn main() {
-    let time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    // Tell Cargo that if the given file changes, to rerun this build script.
+    let time = UNIX_EPOCH.elapsed().unwrap().as_secs();
     println!("cargo::rustc-env=COMPILE_CURRENT_TIME={time}");
 }

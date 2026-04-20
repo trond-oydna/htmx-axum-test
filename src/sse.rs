@@ -1,9 +1,4 @@
-use std::{
-    convert::Infallible,
-    fmt,
-    sync::Arc,
-    time::{Duration, UNIX_EPOCH},
-};
+use std::{convert::Infallible, fmt, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Query, State},
@@ -16,6 +11,7 @@ use tokio_stream::{
     StreamExt,
     wrappers::{BroadcastStream, errors::BroadcastStreamRecvError},
 };
+use uuid::Uuid;
 
 use crate::todo::Task;
 
@@ -24,11 +20,11 @@ type AxumSse<S> = axum::response::Sse<S>;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
-pub struct ClientId(u64);
+pub struct ClientId(Uuid);
 
 impl ClientId {
     pub fn new() -> Self {
-        ClientId(UNIX_EPOCH.elapsed().unwrap().as_secs())
+        ClientId(Uuid::now_v7())
     }
 }
 
