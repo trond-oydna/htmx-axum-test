@@ -1,6 +1,6 @@
 use axum::{
     Form, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     routing::post,
 };
@@ -9,9 +9,9 @@ use serde::Deserialize;
 use tokio::time::sleep;
 
 use crate::{
-    ENDPOINT_DELAY,
-    db::DbConnection,
+    ENDPOINT_DELAY, db,
     http::ServerState,
+    sse::{self, ClientId},
     todo::{NewTask, Task, TodoList},
 };
 
@@ -59,6 +59,7 @@ pub fn list(state: &TodoList) -> Markup {
             hx-target="#todos tbody"
             ;
 
+
         table id="todos" class="table table-zebra pb-4" {
             thead {
                 tr {
@@ -70,7 +71,7 @@ pub fn list(state: &TodoList) -> Markup {
                     }
                 }
             }
-            tbody {
+            tbody sse-swap="task-created" hx-swap="beforeend" {
                 @if state.tasks.is_empty() {
                     // TODO: placeholder
                 } @else {
@@ -91,15 +92,22 @@ pub fn route() -> Router<ServerState> {
         .route("/{id}/uncomplete", post(uncomplete_task))
 }
 
+#[derive(Deserialize)]
+pub struct TaskQueryParams {
+    client_id: ClientId,
+}
+
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct AddTaskFormInput {
     description: String,
 }
 
-#[axum::debug_handler]
+#[axum::debug_handler(state = crate::http::ServerState)]
 pub async fn add_task(
-    State(db): State<DbConnection>,
+    Query(params): Query<TaskQueryParams>,
+    State(db): State<db::Connection>,
+    State(sse): State<sse::Broadcaster>,
     Form(input): Form<AddTaskFormInput>,
 ) -> impl IntoResponse {
     sleep(ENDPOINT_DELAY).await;
@@ -108,26 +116,36 @@ pub async fn add_task(
     };
     let task = db.insert_task(task).await;
 
+    sse.send(sse::Event::task_created(params.client_id, task.clone()));
+
     row(&task)
 }
 
-#[axum::debug_handler]
+#[axum::debug_handler(state = crate::http::ServerState)]
 pub async fn complete_task(
-    State(db): State<DbConnection>,
+    Query(params): Query<TaskQueryParams>,
+    State(db): State<db::Connection>,
+    State(sse): State<sse::Broadcaster>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let task = db.complete_task(id).await;
 
+    sse.send(sse::Event::task_updated(params.client_id, task.clone()));
+
     row(&task)
 }
 
-#[axum::debug_handler]
+#[axum::debug_handler(state = crate::http::ServerState)]
 pub async fn uncomplete_task(
-    State(db): State<DbConnection>,
+    Query(params): Query<TaskQueryParams>,
+    State(db): State<db::Connection>,
+    State(sse): State<sse::Broadcaster>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     sleep(ENDPOINT_DELAY).await;
     let task = db.uncomplete_task(id).await;
+
+    sse.send(sse::Event::task_updated(params.client_id, task.clone()));
 
     row(&task)
 }
@@ -140,7 +158,7 @@ pub struct SearchTaskFormInput {
 
 #[axum::debug_handler]
 pub async fn search_task(
-    State(db): State<DbConnection>,
+    State(db): State<db::Connection>,
     Form(input): Form<SearchTaskFormInput>,
 ) -> impl IntoResponse {
     sleep(ENDPOINT_DELAY).await;
@@ -153,7 +171,7 @@ pub async fn search_task(
     }
 }
 
-fn row(task: &Task) -> Markup {
+pub fn row(task: &Task) -> Markup {
     let complete_path = if task.completed {
         "uncomplete"
     } else {
@@ -161,7 +179,7 @@ fn row(task: &Task) -> Markup {
     };
 
     html! {
-        tr id={"task-" (task.id)} {
+        tr id={"task-" (task.id)} sse-swap={"task-updated-" (task.id)} hx-swap="outerHTML" {
             td {
                 (task.description)
             }

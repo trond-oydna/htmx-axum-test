@@ -1,24 +1,27 @@
-use rusqlite::Connection;
 use tokio::task::spawn_blocking;
 
 use super::{NewTask, Task, TodoList};
-use crate::db::DbConnection;
+use crate::db::{Connection, SqliteConnection};
 
-pub fn setup(conn: &Connection) -> Result<(), String> {
-    conn.execute(
-        r#"CREATE TABLE IF NOT EXISTS tasks (
-            id          INTEGER PRIMARY KEY,
-            description TEXT NOT NULL,
-            completed   BOOLEAN DEFAULT false
-        )"#,
-        (),
-    )
-    .map_err(|e| e.to_string())?;
+pub fn setup(db: &Connection) -> Result<(), String> {
+    db.0.lock()
+        .unwrap()
+        .execute(
+            r#"
+            CREATE TABLE IF NOT EXISTS tasks (
+                id          INTEGER PRIMARY KEY,
+                description TEXT    NOT NULL,
+                completed   BOOLEAN DEFAULT false
+            )
+            "#,
+            (),
+        )
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
 
-fn select_task(conn: &Connection, id: u32) -> Task {
+fn select_task(conn: &SqliteConnection, id: u32) -> Task {
     let mut stmt = conn
         .prepare("SELECT id, description, completed FROM tasks WHERE id = ?1")
         .unwrap();
@@ -33,7 +36,7 @@ fn select_task(conn: &Connection, id: u32) -> Task {
     .unwrap()
 }
 
-impl DbConnection {
+impl Connection {
     pub async fn select_all_tasks(&self) -> TodoList {
         let db = self.0.clone();
         spawn_blocking(move || {
