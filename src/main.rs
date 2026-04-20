@@ -13,5 +13,7 @@ async fn main() -> Result<(), String> {
     let db = db::connect()?;
     let broadcaster = sse::Broadcaster::new();
 
-    Ok(http::start(db, broadcaster).await)
+    http::start(db, broadcaster).await;
+
+    Ok(())
 }

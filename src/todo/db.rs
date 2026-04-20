@@ -62,7 +62,7 @@ impl Connection {
         .unwrap()
     }
 
-    pub async fn search_tasks<'s, 'a>(&'s self, query: String) -> TodoList {
+    pub async fn search_tasks(&self, query: String) -> TodoList {
         let db = self.0.clone();
         spawn_blocking(move || {
             let db = db.lock().unwrap();

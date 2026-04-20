@@ -105,8 +105,8 @@ impl Event {
 
     fn get_client_id(&self) -> ClientId {
         match self {
-            Event::TaskCreated(client_id, _) => client_id.clone(),
-            Event::TaskUpdated(client_id, _) => client_id.clone(),
+            Event::TaskCreated(client_id, _) => *client_id,
+            Event::TaskUpdated(client_id, _) => *client_id,
         }
     }
 
