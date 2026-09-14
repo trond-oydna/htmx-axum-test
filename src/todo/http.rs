@@ -33,13 +33,10 @@ pub fn create() -> Markup {
                 hx-trigger="click"
                 hx-target="#todos tbody"
                 hx-swap="beforeend"
-                hx-on::before-request=r#"
-                    this.disabled = true;
-                    "#
-                hx-on::after-request=r#"
-                    if(event.detail.successful) {
+                hx-disable="this"
+                hx-on:htmx:after:swap=r#"
+                    if (event.detail.ctx.response.status < 400) {
                         document.getElementById("create-task-form").reset();
-                        this.disabled = false;
                     }
                     "#
                 ;
@@ -53,7 +50,7 @@ pub fn list(state: &TodoList) -> Markup {
             type="search"
             name="search"
             class="input w-full"
-            placeholder="Begin Typing To Search Users..."
+            placeholder="Search..."
             hx-post="/todo/search"
             hx-trigger="input changed delay:100ms, keyup[key=='Enter']"
             hx-target="#todos tbody"
@@ -71,7 +68,7 @@ pub fn list(state: &TodoList) -> Markup {
                     }
                 }
             }
-            tbody sse-swap="task-created" hx-swap="beforeend" {
+            tbody {
                 @if state.tasks.is_empty() {
                     // TODO: placeholder
                 } @else {
@@ -179,7 +176,7 @@ pub fn row(task: &Task) -> Markup {
     };
 
     html! {
-        tr id={"task-" (task.id)} sse-swap={"task-updated-" (task.id)} hx-swap="outerHTML" {
+        tr id={"task-" (task.id)} {
             td {
                 (task.description)
             }
@@ -192,12 +189,7 @@ pub fn row(task: &Task) -> Markup {
                     hx-trigger="click"
                     hx-target={"#task-" (task.id)}
                     hx-swap="outerHTML"
-                    hx-on::before-request=r#"
-                        this.disabled = true;
-                        "#
-                    hx-on::after-request=r#"
-                        if(event.detail.successful) this.disabled = false;
-                        "#
+                    hx-disable="this"
                     ;
             }
         }

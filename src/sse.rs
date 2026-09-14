@@ -5,6 +5,7 @@ use axum::{
     response::sse::KeepAlive,
 };
 use futures::stream::Stream;
+use maud::html;
 use serde::Deserialize;
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::{
@@ -107,19 +108,19 @@ impl Event {
     }
 
     fn into_sse_event(self) -> AxumSseEvent {
-        match self {
-            Event::TaskCreated(_, task) => {
-                let markup = crate::todo::http::row(&task);
-                AxumSseEvent::default()
-                    .event("task-created")
-                    .data(markup.into_string())
-            }
-            Event::TaskUpdated(_, task) => {
-                let markup = crate::todo::http::row(&task);
-                AxumSseEvent::default()
-                    .event(format!("task-updated-{}", task.id))
-                    .data(markup.into_string())
-            }
-        }
+        let markup = match self {
+            Event::TaskCreated(_, task) => html! {
+                hx-partial hx-target="#todos tbody" hx-swap="beforeend" {
+                    (crate::todo::http::row(&task))
+                }
+            },
+            Event::TaskUpdated(_, task) => html! {
+                hx-partial hx-target={"#task-" (task.id)} hx-swap="outerHTML" {
+                    (crate::todo::http::row(&task))
+                }
+            },
+        };
+
+        AxumSseEvent::default().data(markup.into_string())
     }
 }

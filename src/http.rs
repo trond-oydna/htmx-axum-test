@@ -42,6 +42,8 @@ pub async fn start(db: db::Connection, sse: sse::Broadcaster) {
         .unwrap();
     let state = ServerState::new(db, sse);
 
+    println!("Server is listening to 127.0.0.1:9090");
+
     axum::serve(listener, app(state)).await.unwrap();
 }
 
@@ -64,24 +66,26 @@ async fn index(State(db): State<db::Connection>) -> Markup {
         (DOCTYPE)
         html class="min-w-full min-h-full" {
             head {
-                script src="/static/htmx@2.0.8.js" {}
-                script src="/static/htmx-sse@2.2.4.js" {}
+                script src="/static/htmx@4.0.0.js" {}
+                script src="/static/htmx@4.0.0_hx-sse.js" {}
                 script src="/static/tailwindcss@4.2.2.js" {}
                 link rel="stylesheet" type="text/css" href={"/static/index.css?t=" (crate::COMPILE_CURRENT_TIME)};
                 link rel="stylesheet" type="text/css" href="/static/daisyui@5.5.18.css";
                 link rel="icon" href="/static/favicon.png";
-                meta name="htmx-config" content="{\"historyEnabled\": false}";
             }
             body class="min-w-full min-h-full h-screen p-4 bg-gray-100" {
                 script {
                     (maud::PreEscaped(format!(r#"
-                    document.body.addEventListener('htmx:configRequest', function(e) {{
-                        e.detail.path += "?client_id={}";
+                    document.body.addEventListener('htmx:config:request', function(e) {{
+                        const request = e.detail.ctx.request;
+                        const url = new URL(request.action, document.baseURI);
+                        url.searchParams.set("client_id", "{}");
+                        request.action = url.pathname + url.search;
                     }});
                     "#, client_id)))
                 }
                 section class="max-w-xl mx-auto grid grid-cols-1 gap-2 px-4 rounded-md bg-white"
-                        hx-ext="sse" sse-connect=(sse_url) {
+                        hx-sse:connect=(sse_url) {
                     h1 class="text-3xl text-center p-4" {
                         "HTMX Axum TODO"
                     }
